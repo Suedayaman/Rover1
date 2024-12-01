@@ -1,0 +1,108 @@
+#include "main.h"
+
+/* UART handle declaration */
+UART_HandleTypeDef huart2;
+
+/* GPIO Pin Definitions */
+#define GPIO_PIN_5   GPIO_PIN_5   // Pin 5 (örnek olarak)
+#define GPIO_PIN_6   GPIO_PIN_6   // Pin 6 (örnek olarak)
+
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+void UART_RxCpltCallback(UART_HandleTypeDef *huart);
+
+int main(void)
+{
+  /* MCU Configuration */
+  HAL_Init(); // HAL kütüphanesini başlat
+
+  SystemClock_Config(); // Sistem saatini yapılandır
+
+  MX_GPIO_Init(); // GPIO pinlerini başlat
+  MX_USART2_UART_Init(); // UART'ı başlat
+
+  /* UART üzerinden veri almayı başlat */
+  uint8_t uart_rx_buffer[1]; // UART mesajı için alıcı buffer
+  HAL_UART_Receive_IT(&huart2, uart_rx_buffer, 1); // Asenkron olarak UART mesajını al
+
+  /* Sonsuz döngü */
+  while (1)
+  {
+    // Burada herhangi bir işlem yapılabilir, UART mesajı beklenir.
+    // UART mesajı alındığında interrupt çalışacak ve pinler duruma göre değişecek.
+  }
+}
+
+/* USART2 init function */
+static void MX_USART2_UART_Init(void)
+{
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* GPIO init function */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  __HAL_RCC_GPIOA_CLK_ENABLE(); // GPIOA saatini etkinleştir (GPIO pinlerini tanımlamak için)
+
+  /* GPIO Pin 5 ve Pin 6 için çıkış olarak ayarlama */
+  GPIO_InitStruct.Pin = GPIO_PIN_5 | GPIO_PIN_6; // Hedef pinler
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP; // Çıkış Push-Pull
+  GPIO_InitStruct.Pull = GPIO_NOPULL; // Pull-up veya Pull-down yok
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW; // Düşük hızda çıkış
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct); // GPIO yapılandırmasını uygula
+}
+
+/* UART Interrupt callback function */
+void UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  uint8_t received_data = huart->pRxBuffPtr[0]; // Gelen veriyi al
+
+  if (received_data == '1') // Eğer veri 1 ise
+  {
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET); // Pin 5'i HIGH yap
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET); // Pin 6'yı LOW yap
+  }
+  else if (received_data == '0') // Eğer veri 0 ise
+  {
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // Pin 5'i LOW yap
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET); // Pin 6'yı HIGH yap
+  }
+  else if (received_data == 'T') // Eğer veri T (Toggle) ise
+  {
+    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Pin 5'i TOGGLE yap
+    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_6); // Pin 6'yı TOGGLE yap
+  }
+
+  /* UART'dan yeni veri almak için interrupt başlat */
+  HAL_UART_Receive_IT(huart, huart->pRxBuffPtr, 1); // Asenkron okuma tekrar başlat
+}
+
+/* Sistem saatini yapılandırma fonksiyonu */
+void SystemClock_Config(void)
+{
+  // Sistem saati konfigürasyonu yapılabilir (STM32CubeMX'de zaten yapılandırılmış olabilir)
+}
+
+/* Error handler (debug için kullanılır) */
+void Error_Handler(void)
+{
+  // Hata durumunda buraya gelinir.
+  __disable_irq();
+  while (1)
+  {
+  }
+}
